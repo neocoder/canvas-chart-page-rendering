@@ -48,7 +48,13 @@ class InfiniteChart {
 		this.height = height;
 		this.masterCanvasHeight = height * 2;
 		this.lastRenderPos = 0;
+
 		this.currentPage = 0;
+
+		this.pageTop = 0;
+		this.pageBottom = 1;
+
+		document.querySelector('#curPage').innerHTML = this.currentPage;
 
 		this.scrollDirection = null;
 
@@ -56,8 +62,8 @@ class InfiniteChart {
 		this.currentRangeTo = this.height;
 
 		this.imageDataCache = {
-			prev: null,
-			cur: null, // { range: [0, 3000], imageData: }
+			bottom: null,
+			top: null, // { range: [0, 3000], imageData: }
 			next: null,
 		};
 
@@ -121,6 +127,15 @@ class InfiniteChart {
     // return range(max.start , (min.end < max.end ? min.end : max.end))
 	}
 
+	rangeToXYWH({from, to}) {
+		return {
+			x: 0,
+			y: from,
+			w: this.width,
+			h: to - from
+		}
+	}
+
 	handleScroll(scrollTop) {
 
 		if ( scrollTop >= this.currentRangeFrom ) {
@@ -137,78 +152,117 @@ class InfiniteChart {
 		// const scrollFrameTop = relativeScrollTop;
 		const relativeScrollBottom = relativeScrollTop + this.height;
 
-		this.drawFrame();
+		// this.drawFrame();
 
 		console.log(`relativeScrollTop: ${relativeScrollTop}`);
 		console.log(`relativeScrollBottom: ${relativeScrollBottom}`);
 
 		// console.log(`relativeScrollBottom: ${relativeScrollBottom}`);
 		// console.log(`this.masterCanvasHeight: ${this.masterCanvasHeight}`);
-		if ( relativeScrollBottom > this.masterCanvasHeight ) {
-			// console.warn('next page')
-			this.imageDataCache.prev = this.imageDataCache.cur;
+		if ( relativeScrollBottom > this.masterCanvasHeight && this.scrollDirection === SD_DOWN ) {
+			console.warn('next page')
 			this.currentPage += 1;
-			// this.lastRenderPos = relativeScrollBottom;
-
-			this.drawFrame();
-
-		} else if ( relativeScrollBottom <= 0 ) {
-			this.currentPage -= 1;
-			this.imageDataCache.prev = this.imageDataCache.cur;
-			this.drawFrame();
-		}
-
-		if ( this.imageDataCache.prev ) {
-			this.miniCtx.clearRect(0, 0, this.width, this.height);
-
-			console.warn('this.currentScrollRange: ', { from: this.currentRangeFrom, to: this.currentRangeTo } );
-			console.log('this.currentRange: ', this.imageDataCache.cur.range );
-			console.log('this.prevRAnge: ', this.imageDataCache.prev.range );
-
-			const prevRange = this.getRangeIntersection({
-				from: this.currentRangeFrom,
-				to: this.currentRangeTo
-			}, this.imageDataCache.prev, true);
-
-			const curRange = this.getRangeIntersection({
-				from: this.currentRangeFrom,
-				to: this.currentRangeTo
-			}, this.imageDataCache.cur, true);
-
-			console.log('prevRangeIntersection:', prevRange);
-
-			console.log('curRangeIntersection:', curRange)
-
-			if ( prevRange ) {
-				this.miniCtx.putImageData(
-					this.imageDataCache.prev.imageData,
-					0, -prevRange.from, //-(this.masterCanvasHeight-this.height)-relativeScrollTop,
-					0, prevRange.from,
-					this.width, prevRange.to-prevRange.from);
-					console.log('putImageData prev: ', 0, prevRange.from, this.width, prevRange.to-prevRange.from)
+			document.querySelector('#curPage').innerHTML = this.currentPage;
+			if ( !this.imageDataCache.bottom ) {
+				this.imageDataCache.bottom = this.drawFrame();
+			} else {
+				this.imageDataCache.top = this.imageDataCache.bottom;
+				this.imageDataCache.bottom = this.drawFrame();
 			}
 
+			// this.lastRenderPos = relativeScrollBottom;
 
-			// this.miniCtx.fillStyle = '#f50';
-			// // this.miniCtx.fillRect(0, prevRange.to-this.height, this.width, curRange.to);
-			// this.miniCtx.fillRect(0, prevRange.to-prevRange.from, this.width, curRange.to);
-			// console.log('fillRect:' , 0, prevRange.to-prevRange.from, this.width, curRange.to)
+			// this.drawFrame();
 
-				if ( curRange ) {
-					if ( prevRange ) {
-						this.miniCtx.putImageData(
-							this.imageDataCache.cur.imageData,
-							0, prevRange.to-prevRange.from,
-							0, curRange.from,
-							this.width, curRange.to);
-					} else {
-						this.miniCtx.putImageData(this.imageDataCache.cur.imageData, 0, -relativeScrollTop);
-					}
-				}
-		} else {
-			this.miniCtx.putImageData(this.imageDataCache.cur.imageData, 0, -relativeScrollTop);
+		} else if (relativeScrollBottom <= 0 && this.scrollDirection === SD_UP ) {
+			console.warn('prev page');
 
+			this.currentPage -= 2;
+			document.querySelector('#curPage').innerHTML = this.currentPage;
+			this.imageDataCache.bottom = this.imageDataCache.top;
+			this.imageDataCache.top = this.drawFrame();
+
+			// this.imageDataCache.bottom = this.imageDataCache.top;
+			// this.drawFrame();
 		}
+
+		const topRange = this.imageDataCache.top && this.getRangeIntersection({
+			from: this.currentRangeFrom,
+			to: this.currentRangeTo
+		}, this.imageDataCache.top, true);
+
+		const bottomRange = this.imageDataCache.bottom && this.getRangeIntersection({
+			from: this.currentRangeFrom,
+			to: this.currentRangeTo
+		}, this.imageDataCache.bottom, true);
+
+		console.log('topRange: ', topRange);
+		console.log('bottomRange: ', bottomRange);
+
+		this.miniCtx.clearRect(0, 0, this.width, this.height);
+
+		let lastDrawPos = 0;
+
+		if ( topRange ) {
+			const { x, y, w, h } = this.rangeToXYWH(topRange);
+			lastDrawPos = h;
+			this.miniCtx.putImageData(this.imageDataCache.top.imageData,
+				0, -y, x, y, w, h);
+
+			console.log('putImageData top: ',0, -y, x, y, w, h);
+		}
+
+
+		if ( bottomRange ) {
+			const { x, y, w, h } = this.rangeToXYWH(bottomRange);
+			if ( lastDrawPos === 0 ) {
+				lastDrawPos = -y;
+			}
+			this.miniCtx.putImageData(this.imageDataCache.bottom.imageData,
+				0, lastDrawPos, x, y, w, h);
+
+				console.log('putImageData bottom: ',0, lastDrawPos, x, y, w, h);
+			// this.miniCtx.putImageData(
+			// 	this.imageDataCache.bottom.imageData,
+			// 	0, -bottomRange.from, //-(this.masterCanvasHeight-this.height)-relativeScrollTop,
+			// 	0, bottomRange.from,
+			// 	this.width, bottomRange.to-bottomRange.from);
+			// 	console.log('putImageData bottom: ', 0, bottomRange.from, this.width, bottomRange.to-bottomRange.from)
+		}
+
+		this.imageDataCache.top && this.ctx.putImageData(this.imageDataCache.top.imageData, 0, 0);
+		this.imageDataCache.bottom && this.ctx2.putImageData(this.imageDataCache.bottom.imageData, 0, 0);
+
+
+		// if ( bottomRange ) {
+
+		// 	console.warn('this.currentScrollRange: ', { from: this.currentRangeFrom, to: this.currentRangeTo } );
+		// 	console.log('this.currentRange: ', this.imageDataCache.top.range );
+		// 	console.log('this.prevRAnge: ', this.imageDataCache.bottom.range );
+
+		// 	console.log('prevRangeIntersection:', bottomRange);
+		// 	console.log('curRangeIntersection:', topRange)
+
+		// 	// this.miniCtx.fillStyle = '#f50';
+		// 	// // this.miniCtx.fillRect(0, bottomRange.to-this.height, this.width, topRange.to);
+		// 	// this.miniCtx.fillRect(0, bottomRange.to-bottomRange.from, this.width, topRange.to);
+		// 	// console.log('fillRect:' , 0, bottomRange.to-bottomRange.from, this.width, topRange.to)
+
+		// 		if ( topRange ) {
+		// 			if ( bottomRange ) {
+		// 				this.miniCtx.putImageData(
+		// 					this.imageDataCache.top.imageData,
+		// 					0, bottomRange.to-bottomRange.from,
+		// 					0, topRange.from,
+		// 					this.width, topRange.to);
+		// 			} else {
+		// 				this.miniCtx.putImageData(this.imageDataCache.top.imageData, 0, -relativeScrollTop);
+		// 			}
+		// 		}
+		// } else {
+		// 	this.miniCtx.putImageData(this.imageDataCache.top.imageData, 0, -relativeScrollTop);
+
+		// }
 	}
 
 	drawFrameBoundaries() {
@@ -250,7 +304,10 @@ class InfiniteChart {
 		//   ctx.stroke();
 		// });
 
-		requestAnimationFrame(this.drawFrame);
+		this.imageDataCache.top = this.drawFrame();
+		this.handleScroll(0);
+
+		// requestAnimationFrame(this.drawFrame);
 	}
 
 	drawDebugData() {
@@ -295,7 +352,7 @@ class InfiniteChart {
 	}
 
 	drawFrame() {
-		const { canvas, ctx, currentPage, currentRangeFrom, currentRangeTo } = this;
+		const { canvas, ctx, currentPage } = this;
 		const canvasHeight = canvas.height;
 		const canvasWidth = canvas.width;
 
@@ -308,6 +365,8 @@ class InfiniteChart {
 
 		const pagePointsRangeFrom = currentPage * this.masterCanvasHeight;
 		const pagePointsRangeTo = pagePointsRangeFrom + this.masterCanvasHeight;
+
+		console.log(`pagePointsRangeFrom: ${pagePointsRangeFrom}, pagePointsRangeTo: ${pagePointsRangeTo}`)
 
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
@@ -381,14 +440,10 @@ class InfiniteChart {
 		const pageRangeFrom = this.currentPage * this.masterCanvasHeight;
 		const pageRangeTo = pageRangeFrom + this.masterCanvasHeight;
 
-		this.imageDataCache.cur = {
+		return  {
 			range: { from: pageRangeFrom, to: pageRangeTo },
 			imageData: ctx.getImageData(0, 0, this.width, this.masterCanvasHeight)
-		};
-		if ( this.imageDataCache.prev ) {
-			this.ctx2.putImageData(this.imageDataCache.prev.imageData, 0, 0);
 		}
-		// requestAnimationFrame(this.drawFrame);
 	}
 }
 
