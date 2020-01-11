@@ -5,6 +5,18 @@ let globalScroll = 0;
 const SD_DOWN = 'SD_DOWN';
 const SD_UP = 'SD_UP';
 
+const pagesColors = [
+	'#cee7e6',
+	'#bfc0c0',
+	'#648767',
+	'#7dc95e',
+	'#7cdf64',
+	'#d4e09b',
+	'#94a89a',
+	'#c7ac92',
+	'#a44a3f',
+]
+
 function getRandomInt(min, max) {
 	min = Math.ceil(min);
 	max = Math.floor(max);
@@ -49,12 +61,12 @@ class InfiniteChart {
 		this.masterCanvasHeight = height * 2;
 		this.lastRenderPos = 0;
 
+		this.maxYPoint = 110000;
+
 		this.currentPage = 0;
 
 		this.pageTop = 0;
 		this.pageBottom = 1;
-
-		document.querySelector('#curPage').innerHTML = this.currentPage;
 
 		this.scrollDirection = null;
 
@@ -72,30 +84,23 @@ class InfiniteChart {
 
 		this.drawFrame = this.drawFrame.bind(this);
 
-		this.canvas = document.createElement('canvas');
-		this.canvas.width = width;
-		this.canvas.height = this.masterCanvasHeight;
-		this.ctx = this.canvas.getContext('2d');
-		document.body.appendChild(this.canvas);
+		const cvdebug = document.querySelector('#cvdebug');
+		this.ctxDebug = cvdebug.getContext('2d');
 
-		this.canvas2 = document.createElement('canvas');
-		this.canvas2.width = width;
-		this.canvas2.height = this.masterCanvasHeight;
-		this.ctx2 = this.canvas2.getContext('2d');
-		document.body.appendChild(this.canvas2);
-
+		this.ctx = this.createCanvas('top');
+		this.ctx2 = this.createCanvas('bottom');
 
 		const scrollBox = document.createElement('div');
 		scrollBox.className = 'scrollbox';
 		scrollBox.innerHTML = `
-			<div>
+			<div style="height: ${this.maxYPoint}px;">
 				<canvas
 					width="${width}"
 					height="${height}"
 				></canvas>
 			</div>
 		`;
-		document.body.appendChild(scrollBox);
+		document.querySelector('#canvases').appendChild(scrollBox);
 		this.miniCanvas = scrollBox.querySelector('canvas');
 		this.miniCtx = this.miniCanvas.getContext("2d");
 
@@ -104,6 +109,19 @@ class InfiniteChart {
 		});
 
 		this.initChart();
+	}
+
+	createCanvas(title = '') {
+		const canvas = document.createElement('canvas');
+		canvas.width = this.width;
+		canvas.height = this.masterCanvasHeight;
+
+		const div = document.createElement('div');
+		div.innerHTML = `<span>${title}</span>`;
+ 		div.appendChild(canvas);
+
+		document.querySelector('#canvases').appendChild(div);
+		return canvas.getContext('2d');
 	}
 
 	getRangeIntersection(range, imageDataCache, relative = false) {
@@ -136,55 +154,67 @@ class InfiniteChart {
 		}
 	}
 
-	handleScroll(scrollTop) {
+	renderDebug(data) {
+		const ctx = this.ctxDebug;
+		const rowHeight = 16;
+		const colWidth = 200;
+		const maxRows = 5;
+		const maxCols = 2;
+		let curCol = 0;
+		let curRow = 0;
+		ctx.clearRect(0, 0, 400, 100);
+		ctx.font = '14px sans-serif';
+		Object.entries(data).forEach(([key, value]) => {
 
-		if ( scrollTop >= this.currentRangeFrom ) {
-			this.scrollDirection = SD_DOWN;
-		} else {
-			this.scrollDirection = SD_UP;
-		}
+			ctx.fillStyle = '#000';
+			ctx.textBaseline = 'top';
+			const x = curCol * colWidth;
+			const y = curRow * rowHeight;
+
+			ctx.fillText(`${key}: ${value}`, x, y);
+
+			curRow += 1;
+
+			if ( curRow >= maxRows ) {
+				curRow = 0;
+				curCol += 1;
+			}
+		});
+
+	}
+
+	handleScroll(scrollTop) {
+		console.log('handleScroll')
+
+		const scrollDirection = ( scrollTop >= this.currentRangeFrom ) ? SD_DOWN : SD_UP;
 
 		this.currentRangeFrom = scrollTop;
 		this.currentRangeTo = this.currentRangeFrom + this.height;
 
-		const { currentPageImgData } = this;
 		const relativeScrollTop = scrollTop - ( this.currentPage * this.masterCanvasHeight );
-		// const scrollFrameTop = relativeScrollTop;
 		const relativeScrollBottom = relativeScrollTop + this.height;
 
-		// this.drawFrame();
-
-		console.log(`relativeScrollTop: ${relativeScrollTop}`);
-		console.log(`relativeScrollBottom: ${relativeScrollBottom}`);
-
+		// console.log(`relativeScrollTop: ${relativeScrollTop}`);
 		// console.log(`relativeScrollBottom: ${relativeScrollBottom}`);
-		// console.log(`this.masterCanvasHeight: ${this.masterCanvasHeight}`);
-		if ( relativeScrollBottom > this.masterCanvasHeight && this.scrollDirection === SD_DOWN ) {
-			console.warn('next page')
-			this.currentPage += 1;
-			document.querySelector('#curPage').innerHTML = this.currentPage;
-			if ( !this.imageDataCache.bottom ) {
-				this.imageDataCache.bottom = this.drawFrame();
-			} else {
-				this.imageDataCache.top = this.imageDataCache.bottom;
-				this.imageDataCache.bottom = this.drawFrame();
-			}
 
-			// this.lastRenderPos = relativeScrollBottom;
+		// page switch
 
-			// this.drawFrame();
+		// if ( relativeScrollBottom > this.masterCanvasHeight && scrollDirection === SD_DOWN ) {
+		// 	console.warn('next page')
+		// 	this.currentPage += 1;
+		// 	if ( !this.imageDataCache.bottom ) {
+		// 		this.imageDataCache.bottom = this.drawFrame();
+		// 	} else {
+		// 		this.imageDataCache.top = this.imageDataCache.bottom;
+		// 		this.imageDataCache.bottom = this.drawFrame();
+		// 	}
+		// } else if (relativeScrollBottom <= 0 && scrollDirection === SD_UP ) {
+		// 	console.warn('prev page');
 
-		} else if (relativeScrollBottom <= 0 && this.scrollDirection === SD_UP ) {
-			console.warn('prev page');
-
-			this.currentPage -= 2;
-			document.querySelector('#curPage').innerHTML = this.currentPage;
-			this.imageDataCache.bottom = this.imageDataCache.top;
-			this.imageDataCache.top = this.drawFrame();
-
-			// this.imageDataCache.bottom = this.imageDataCache.top;
-			// this.drawFrame();
-		}
+		// 	this.currentPage -= 1;
+		// 	this.imageDataCache.bottom = this.imageDataCache.top;
+		// 	this.imageDataCache.top = this.drawFrame();
+		// }
 
 		const topRange = this.imageDataCache.top && this.getRangeIntersection({
 			from: this.currentRangeFrom,
@@ -196,8 +226,62 @@ class InfiniteChart {
 			to: this.currentRangeTo
 		}, this.imageDataCache.bottom, true);
 
-		console.log('topRange: ', topRange);
-		console.log('bottomRange: ', bottomRange);
+		if ( this.lastTopRange && this.lastBottomRange && !topRange && bottomRange ) {
+			// console.warn('switch to next Page!')
+			// this.currentPage += 1;
+			this.imageDataCache.top = this.imageDataCache.bottom;
+			this.imageDataCache.bottom = this.drawFrame(this.imageDataCache.top.page + 1);
+		} else if ( this.lastTopRange && this.lastBottomRange && topRange && !bottomRange ) {
+			// console.warn('switch to prev page');
+			if (this.imageDataCache.top.page > 0 ) {
+				this.imageDataCache.bottom = this.imageDataCache.top;
+				this.imageDataCache.top = this.drawFrame(this.imageDataCache.bottom.page - 1);
+			}
+		}
+
+		if ( !topRange && !bottomRange ) {
+			const page = Math.floor(this.currentRangeFrom / this.masterCanvasHeight);
+			this.imageDataCache.top = this.drawFrame(page);
+			this.imageDataCache.bottom = this.drawFrame(page + 1);
+		}
+
+		if ( this.scrollDirection && this.scrollDirection !== scrollDirection ) {
+			// scroll direction change
+
+			if ( scrollDirection === SD_UP && topRange && !bottomRange ) {
+				console.warn('switch to prev page 2');
+				if (this.imageDataCache.top.page > 0 ) {
+					this.imageDataCache.bottom = this.imageDataCache.top;
+					this.imageDataCache.top = this.drawFrame(this.imageDataCache.bottom.page - 1);
+				}
+
+			}
+		}
+
+
+		this.renderDebug({
+			'currentRangeFrom': this.currentRangeFrom,
+			'currentRangeTo': this.currentRangeTo,
+			'currentPage': this.currentPage,
+			'topRange': JSON.stringify(topRange),
+			'bottomRange': JSON.stringify(bottomRange),
+			'lastTopRange': this.lastTopRange,
+			'lastBottomRange': this.lastBottomRange
+		});
+
+
+
+		this.lastTopRange = topRange;
+		this.lastBottomRange = bottomRange;
+
+		// initial draw of the second page
+		// if ( scrollDirection === SD_DOWN && topRange && !bottomRange && !this.imageDataCache.bottom ) {
+		// 	this.currentPage += 1;
+		// 	this.imageDataCache.bottom = this.drawFrame(this.currentPage);
+		// }
+
+		// console.log('topRange: ', topRange);
+		// console.log('bottomRange: ', bottomRange);
 
 		this.miniCtx.clearRect(0, 0, this.width, this.height);
 
@@ -209,7 +293,7 @@ class InfiniteChart {
 			this.miniCtx.putImageData(this.imageDataCache.top.imageData,
 				0, -y, x, y, w, h);
 
-			console.log('putImageData top: ',0, -y, x, y, w, h);
+			// console.log('putImageData top: ',0, -y, x, y, w, h);
 		}
 
 
@@ -220,8 +304,8 @@ class InfiniteChart {
 			}
 			this.miniCtx.putImageData(this.imageDataCache.bottom.imageData,
 				0, lastDrawPos, x, y, w, h);
+			// console.log('putImageData bottom: ',0, lastDrawPos, x, y, w, h);
 
-				console.log('putImageData bottom: ',0, lastDrawPos, x, y, w, h);
 			// this.miniCtx.putImageData(
 			// 	this.imageDataCache.bottom.imageData,
 			// 	0, -bottomRange.from, //-(this.masterCanvasHeight-this.height)-relativeScrollTop,
@@ -232,6 +316,8 @@ class InfiniteChart {
 
 		this.imageDataCache.top && this.ctx.putImageData(this.imageDataCache.top.imageData, 0, 0);
 		this.imageDataCache.bottom && this.ctx2.putImageData(this.imageDataCache.bottom.imageData, 0, 0);
+
+		this.scrollDirection = scrollDirection;
 
 
 		// if ( bottomRange ) {
@@ -287,7 +373,7 @@ class InfiniteChart {
 
 	initChart() {
 		this.dataItems = [];
-		for (let i = 0; i < 80000; i++) {
+		for (let i = 0; i < this.maxYPoint; i++) {
 			this.dataItems.push({
 				point: {
 					x: getRandomInt(0, 250),
@@ -304,13 +390,14 @@ class InfiniteChart {
 		//   ctx.stroke();
 		// });
 
-		this.imageDataCache.top = this.drawFrame();
+		this.imageDataCache.top = this.drawFrame(this.currentPage);
+		this.imageDataCache.bottom = this.drawFrame(this.currentPage + 1);
 		this.handleScroll(0);
 
 		// requestAnimationFrame(this.drawFrame);
 	}
 
-	drawDebugData() {
+	drawDebugData(page) {
 		const {
 			currentRangeFrom,
 			currentRangeTo,
@@ -318,43 +405,24 @@ class InfiniteChart {
 			ctx
 		} = this;
 
+		/// draw page number
 		ctx.save();
-		ctx.font = "14px sans-serif";
-
-		//*
-		ctx.fillStyle = "rgba(0,0,0,0.75)";
-		ctx.rect(220, 0, 70, 150);
-		ctx.fill();
-
-		ctx.fillStyle = "red";
-		ctx.fillText(`F: ${currentRangeFrom}`, 230, 15);
-		ctx.fillText(`T: ${currentRangeTo}`, 230, 30);
-
-		ctx.fillStyle = "yellow";
-		ctx.fillText(`${scrollDirection}`, 230, 45);
-
-		// ctx.fillStyle = "magenta";
-		// ctx.fillText(`from: ${newItems[0].n}`, 250, 60);
-
-		// ctx.fillStyle = "cyan";
-		// ctx.fillText(`to: ${newItems[newItems.length - 1].n}`, 250, 75);
-
-		// ctx.fillStyle = "white";
-		// ctx.fillText(`${perfMin}`, 250, 90);
-
-		// ctx.fillStyle = "white";
-		// ctx.fillText(`${perfMax}`, 250, 105);
-
-		// ctx.fillStyle = "white";
-		// ctx.fillText(`${perfAvg}`, 250, 120);
-		//*/
+		const font = "102px sans-serif";
+		const fontHeight = parseInt(font, 10);
+		ctx.font = font;
+		ctx.textBaseline = 'top';
+		let textWidth = ctx.measureText(page).width;
+		let x = Math.round(this.width / 2 - textWidth / 2);
+		let y = Math.round(this.masterCanvasHeight / 2 - fontHeight / 2);
+		ctx.fillStyle = '#000';
+		ctx.fillText(page, x, y);
 		ctx.restore();
 	}
 
-	drawFrame() {
-		const { canvas, ctx, currentPage } = this;
-		const canvasHeight = canvas.height;
-		const canvasWidth = canvas.width;
+	drawFrame(page) {
+		const { canvas, ctx } = this;
+		const canvasHeight = this.masterCanvasHeight;
+		const canvasWidth = this.width;
 
 		let perfMin = 0;
 		let perfMax = 0;
@@ -363,12 +431,14 @@ class InfiniteChart {
 
 		// const scroll = globalScroll;
 
-		const pagePointsRangeFrom = currentPage * this.masterCanvasHeight;
+		const pagePointsRangeFrom = page * this.masterCanvasHeight;
 		const pagePointsRangeTo = pagePointsRangeFrom + this.masterCanvasHeight;
 
-		console.log(`pagePointsRangeFrom: ${pagePointsRangeFrom}, pagePointsRangeTo: ${pagePointsRangeTo}`)
-
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+		// set debug page background
+		// ctx.fillStyle = pagesColors[page];
+		// ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
 		let t = performance.now();
 
@@ -398,7 +468,7 @@ class InfiniteChart {
 
 		let perfAvg = (perfMin + perfMax) / 2;
 
-		this.drawDebugData();
+		this.drawDebugData(page);
 
 		if (newItems.length) {
 			ctx.save();
@@ -437,11 +507,12 @@ class InfiniteChart {
 			ctx.restore();
 		}
 
-		const pageRangeFrom = this.currentPage * this.masterCanvasHeight;
+		const pageRangeFrom = page * this.masterCanvasHeight;
 		const pageRangeTo = pageRangeFrom + this.masterCanvasHeight;
 
 		return  {
 			range: { from: pageRangeFrom, to: pageRangeTo },
+			page,
 			imageData: ctx.getImageData(0, 0, this.width, this.masterCanvasHeight)
 		}
 	}

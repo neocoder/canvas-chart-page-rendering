@@ -7,7 +7,7 @@
 			html, body {
 				height: 100%;
 			}
-			body {
+			#canvases {
 				overflow: hidden;
 				display: flex;
 				flex-direction: row;
@@ -33,17 +33,15 @@
 				position: sticky;
 				top: 0;
 			}
-			#data {
-				position: fixed;
-				top: 0;
-				left: 0;
-			}
 		</style>
   </head>
 
   <body>
 		<div id="data">
-			<p>Current Page: <span id="curPage"></span></p>
+			<canvas id="cvdebug" width="400" height="100"></canvas>
+		</div>
+		<div id="canvases">
+
 		</div>
 		<!-- <div id="hidden-canvas">
 
