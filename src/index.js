@@ -157,12 +157,12 @@ class InfiniteChart {
 	renderDebug(data) {
 		const ctx = this.ctxDebug;
 		const rowHeight = 16;
-		const colWidth = 200;
+		const colWidth = 250;
 		const maxRows = 5;
 		const maxCols = 2;
 		let curCol = 0;
 		let curRow = 0;
-		ctx.clearRect(0, 0, 400, 100);
+		ctx.clearRect(0, 0, 500, 100);
 		ctx.font = '14px sans-serif';
 		Object.entries(data).forEach(([key, value]) => {
 
@@ -193,6 +193,9 @@ class InfiniteChart {
 
 		const relativeScrollTop = scrollTop - ( this.currentPage * this.masterCanvasHeight );
 		const relativeScrollBottom = relativeScrollTop + this.height;
+
+		const pageFrom = Math.floor(this.currentRangeFrom / this.masterCanvasHeight);
+		const pageTo = pageFrom + 1;
 
 		// console.log(`relativeScrollTop: ${relativeScrollTop}`);
 		// console.log(`relativeScrollBottom: ${relativeScrollBottom}`);
@@ -239,6 +242,13 @@ class InfiniteChart {
 			}
 		}
 
+		if ( !this.lastTopRange && !this.lastBottomRange ) {
+			// console.warn('RENDER BOTH PAGES')
+			this.imageDataCache.top = this.drawFrame(pageFrom);
+			this.imageDataCache.bottom = this.drawFrame(pageTo);
+
+		}
+
 		if ( !topRange && !bottomRange ) {
 			const page = Math.floor(this.currentRangeFrom / this.masterCanvasHeight);
 			this.imageDataCache.top = this.drawFrame(page);
@@ -258,7 +268,6 @@ class InfiniteChart {
 			}
 		}
 
-
 		this.renderDebug({
 			'currentRangeFrom': this.currentRangeFrom,
 			'currentRangeTo': this.currentRangeTo,
@@ -266,7 +275,9 @@ class InfiniteChart {
 			'topRange': JSON.stringify(topRange),
 			'bottomRange': JSON.stringify(bottomRange),
 			'lastTopRange': this.lastTopRange,
-			'lastBottomRange': this.lastBottomRange
+			'lastBottomRange': this.lastBottomRange,
+			'pageFrom': pageFrom,
+			'pageTo': pageTo,
 		});
 
 
@@ -293,7 +304,7 @@ class InfiniteChart {
 			this.miniCtx.putImageData(this.imageDataCache.top.imageData,
 				0, -y, x, y, w, h);
 
-			// console.log('putImageData top: ',0, -y, x, y, w, h);
+			console.log('putImageData top: ',0, -y, x, y, w, h);
 		}
 
 
@@ -304,7 +315,7 @@ class InfiniteChart {
 			}
 			this.miniCtx.putImageData(this.imageDataCache.bottom.imageData,
 				0, lastDrawPos, x, y, w, h);
-			// console.log('putImageData bottom: ',0, lastDrawPos, x, y, w, h);
+			console.log('putImageData bottom: ',0, lastDrawPos, x, y, w, h);
 
 			// this.miniCtx.putImageData(
 			// 	this.imageDataCache.bottom.imageData,
