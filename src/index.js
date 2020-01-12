@@ -55,8 +55,7 @@ class InfiniteChart {
 
 		this.imageDataCache = {
 			bottom: null,
-			top: null, // { range: [0, 3000], imageData: }
-			next: null,
+			top: null
 		};
 
 		this.currentPageImgData = null;
@@ -72,7 +71,6 @@ class InfiniteChart {
 
 		const canvas = this.createCanvasElement(this.width, this.masterCanvasHeight);
 		this.ctx = canvas.getContext('2d');
-		// this.ctx2 = this.createCanvas('bottom');
 
 		const scrollBox = document.createElement('div');
 		scrollBox.className = 'scrollbox';
@@ -128,7 +126,6 @@ class InfiniteChart {
 			from: max.from,
 			to: min.to < max.to ? min.to : max.to
 		}
-    // return range(max.start , (min.end < max.end ? min.end : max.end))
 	}
 
 	rangeToXYWH({from, to}) {
@@ -243,10 +240,6 @@ class InfiniteChart {
 			'pageFrom': pageFrom,
 			'pageTo': pageTo,
 		});
-
-
-		// this.imageDataCache.top && this.ctx.putImageData(this.imageDataCache.top.imageData, 0, 0);
-		// this.imageDataCache.bottom && this.ctx2.putImageData(this.imageDataCache.bottom.imageData, 0, 0);
 
 		this.scrollDirection = scrollDirection;
 	}
