@@ -3,22 +3,8 @@ import EventEmitter from 'events';
 
 const syncScroll = new EventEmitter();
 
-let globalScroll = 0;
-
 const SD_DOWN = 'SD_DOWN';
 const SD_UP = 'SD_UP';
-
-const pagesColors = [
-	'#cee7e6',
-	'#bfc0c0',
-	'#648767',
-	'#7dc95e',
-	'#7cdf64',
-	'#d4e09b',
-	'#94a89a',
-	'#c7ac92',
-	'#a44a3f',
-]
 
 function getRandomInt(min, max) {
 	min = Math.ceil(min);
@@ -28,32 +14,21 @@ function getRandomInt(min, max) {
 
 /// expand with color, background etc.
 function drawTextBG(ctx, txt, font, x, y) {
-
-	/// lets save current state as we make a lot of changes
 	ctx.save();
-
-	/// set font
 	ctx.font = font;
-
-	/// draw text from top - makes life easier at the moment
 	ctx.textBaseline = 'top';
 
 	/// color for background
 	ctx.fillStyle = '#f50';
-
-	/// get width of text
 	var width = ctx.measureText(txt).width;
 
-	/// draw background rect assuming height of font
+	/// draw background rect
 	ctx.fillRect(x, y, width, parseInt(font, 10));
 
 	/// text color
 	ctx.fillStyle = '#000';
-
-	/// draw text on top
 	ctx.fillText(txt, x, y);
 
-	/// restore original state
 	ctx.restore();
 }
 
@@ -286,27 +261,13 @@ class InfiniteChart {
 			});
 		}
 
-		// data.forEach(([x, y]) => {
-		//   ctx.beginPath();
-		//   ctx.arc(x, y, 3, 0, Math.PI * 2);
-		//   ctx.fill();
-		//   ctx.stroke();
-		// });
-
 		this.imageDataCache.top = this.drawFrame(this.currentPage);
 		this.imageDataCache.bottom = this.drawFrame(this.currentPage + 1);
 		this.handleScroll(0);
-
-		// requestAnimationFrame(this.drawFrame);
 	}
 
 	drawDebugData(page) {
-		const {
-			currentRangeFrom,
-			currentRangeTo,
-			scrollDirection,
-			ctx
-		} = this;
+		const { ctx } = this;
 
 		/// draw page number
 		ctx.save();
@@ -323,33 +284,16 @@ class InfiniteChart {
 	}
 
 	drawFrame(page) {
-		const { canvas, ctx } = this;
+		const { ctx } = this;
 		const canvasHeight = this.masterCanvasHeight;
 		const canvasWidth = this.width;
 
-		let perfMin = 0;
-		let perfMax = 0;
-
 		ctx.fillStyle = "rgba(228, 248, 225, 0.5)";
-
-		// const scroll = globalScroll;
 
 		const pagePointsRangeFrom = page * this.masterCanvasHeight;
 		const pagePointsRangeTo = pagePointsRangeFrom + this.masterCanvasHeight;
 
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-		// let newItems = [];
-		// for (let i = 0; i < dataItems.length; i++) {
-		//   const { point, n } = dataItems[i];
-		//   const { x, y } = point;
-
-		//   if (y >= pointsRangeFrom && y <= pointsRangeTo) {
-		//     newItems.push(dataItems[i]);
-		//   } else if (y > pointsRangeTo) {
-		//     break;
-		//   }
-		// }
 
 		const firstPoint = bsb.ge(this.dataItems, pagePointsRangeFrom, ({ point: { x, y } }, from) => y - from);
 		const lastPoint = bsb.le(this.dataItems, pagePointsRangeTo, ({ point: { x, y } }, to) => y - to);
@@ -380,6 +324,7 @@ class InfiniteChart {
 				prev = itm;
 			});
 
+			// draw labels
 			newItems.forEach(itm => {
 				const { y } = itm.point;
 
