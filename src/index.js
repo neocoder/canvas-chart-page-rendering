@@ -33,11 +33,13 @@ function drawTextBG(ctx, txt, font, x, y) {
 }
 
 class InfiniteChart {
-	constructor(width = 300, height = 300) {
+	constructor(width = 300, height = 400) {
 		this.width = width;
 		this.height = height;
 		this.masterCanvasHeight = height * 2;
 		this.lastRenderPos = 0;
+
+		this.dpr = window.devicePixelRatio || 1;
 
 		this.maxYPoint = 110000;
 
@@ -62,24 +64,26 @@ class InfiniteChart {
 
 		this.drawFrame = this.drawFrame.bind(this);
 
-		const cvdebug = document.querySelector('#cvdebug');
+		const rootEl = document.createElement('div');
+
+		const cvdebug = this.createCanvasElement(300, 100);
+		rootEl.appendChild(cvdebug);
 		this.ctxDebug = cvdebug.getContext('2d');
 
-		this.ctx = this.createCanvas('top');
+		const canvas = this.createCanvasElement(this.width, this.masterCanvasHeight);
+		this.ctx = canvas.getContext('2d');
 		// this.ctx2 = this.createCanvas('bottom');
 
 		const scrollBox = document.createElement('div');
 		scrollBox.className = 'scrollbox';
 		scrollBox.innerHTML = `
-			<div style="height: ${this.maxYPoint}px;">
-				<canvas
-					width="${width}"
-					height="${height}"
-				></canvas>
+			<div class="scrollContainer" style="height: ${this.maxYPoint}px;">
 			</div>
 		`;
-		document.querySelector('#canvases').appendChild(scrollBox);
-		this.miniCanvas = scrollBox.querySelector('canvas');
+		this.miniCanvas = this.createCanvasElement(width, height);
+		scrollBox.querySelector('.scrollContainer').appendChild(this.miniCanvas);
+		rootEl.appendChild(scrollBox);
+		document.querySelector('#canvases').appendChild(rootEl);
 		this.miniCtx = this.miniCanvas.getContext("2d");
 
 		scrollBox.addEventListener('scroll', e => {
@@ -94,17 +98,16 @@ class InfiniteChart {
 		this.initChart();
 	}
 
-	createCanvas(title = '') {
+	createCanvasElement(width, height) {
+		const { dpr } = this;
 		const canvas = document.createElement('canvas');
-		canvas.width = this.width;
-		canvas.height = this.masterCanvasHeight;
-
-		const div = document.createElement('div');
-		div.innerHTML = `<span>${title}</span>`;
- 		div.appendChild(canvas);
-
-		// document.querySelector('#canvases').appendChild(div);
-		return canvas.getContext('2d');
+		canvas.width = width * dpr;
+		canvas.height = height * dpr;
+		const ctx = canvas.getContext('2d');
+		ctx.scale(dpr, dpr);
+		canvas.style.width = `${width}px`;
+		canvas.style.height = `${height}px`;
+		return canvas;
 	}
 
 	getRangeIntersection(range, imageDataCache, relative = false) {
@@ -131,21 +134,21 @@ class InfiniteChart {
 	rangeToXYWH({from, to}) {
 		return {
 			x: 0,
-			y: from,
-			w: this.width,
-			h: to - from
+			y: from * this.dpr,
+			w: this.width * this.dpr,
+			h: (to - from) * this.dpr
 		}
 	}
 
 	renderDebug(data) {
 		const ctx = this.ctxDebug;
 		const rowHeight = 16;
-		const colWidth = 250;
+		const colWidth = this.width;
 		const maxRows = 5;
-		const maxCols = 2;
+		const maxCols = 1;
 		let curCol = 0;
 		let curRow = 0;
-		ctx.clearRect(0, 0, 500, 100);
+		ctx.clearRect(0, 0, colWidth, 100);
 		ctx.font = '14px sans-serif';
 		Object.entries(data).forEach(([key, value]) => {
 
@@ -214,18 +217,9 @@ class InfiniteChart {
 			to: this.currentRangeTo
 		}, this.imageDataCache.bottom, true);
 
-
-		this.renderDebug({
-			'currentRangeFrom': this.currentRangeFrom,
-			'currentRangeTo': this.currentRangeTo,
-			'pageFrom': pageFrom,
-			'pageTo': pageTo,
-		});
-
 		this.miniCtx.clearRect(0, 0, this.width, this.height);
 
 		let lastDrawPos = 0;
-
 		if ( topRange ) {
 			const { x, y, w, h } = this.rangeToXYWH(topRange);
 			lastDrawPos = h;
@@ -242,6 +236,14 @@ class InfiniteChart {
 			this.miniCtx.putImageData(this.imageDataCache.bottom.imageData,
 				0, lastDrawPos, x, y, w, h);
 		}
+
+		this.renderDebug({
+			'currentRangeFrom': this.currentRangeFrom,
+			'currentRangeTo': this.currentRangeTo,
+			'pageFrom': pageFrom,
+			'pageTo': pageTo,
+		});
+
 
 		// this.imageDataCache.top && this.ctx.putImageData(this.imageDataCache.top.imageData, 0, 0);
 		// this.imageDataCache.bottom && this.ctx2.putImageData(this.imageDataCache.bottom.imageData, 0, 0);
@@ -343,7 +345,7 @@ class InfiniteChart {
 		return  {
 			range: { from: pageRangeFrom, to: pageRangeTo },
 			page,
-			imageData: ctx.getImageData(0, 0, this.width, this.masterCanvasHeight)
+			imageData: ctx.getImageData(0, 0, this.width * this.dpr, this.masterCanvasHeight * this.dpr)
 		}
 	}
 }
@@ -354,4 +356,4 @@ function createCharts(chartsNum) {
 	}
 }
 
-createCharts(10)
+createCharts(5)
