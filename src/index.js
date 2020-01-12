@@ -1,4 +1,7 @@
 import bsb from "binary-search-bounds";
+import EventEmitter from 'events';
+
+const syncScroll = new EventEmitter();
 
 let globalScroll = 0;
 
@@ -88,7 +91,7 @@ class InfiniteChart {
 		this.ctxDebug = cvdebug.getContext('2d');
 
 		this.ctx = this.createCanvas('top');
-		this.ctx2 = this.createCanvas('bottom');
+		// this.ctx2 = this.createCanvas('bottom');
 
 		const scrollBox = document.createElement('div');
 		scrollBox.className = 'scrollbox';
@@ -105,8 +108,13 @@ class InfiniteChart {
 		this.miniCtx = this.miniCanvas.getContext("2d");
 
 		scrollBox.addEventListener('scroll', e => {
-			this.handleScroll(Math.round(scrollBox.scrollTop));
+			syncScroll.emit('scroll', Math.round(scrollBox.scrollTop));
+			// this.handleScroll(Math.round(scrollBox.scrollTop));
 		});
+
+		syncScroll.on('scroll', scrollPos => {
+			this.handleScroll(scrollPos);
+		})
 
 		this.initChart();
 	}
@@ -120,7 +128,7 @@ class InfiniteChart {
 		div.innerHTML = `<span>${title}</span>`;
  		div.appendChild(canvas);
 
-		document.querySelector('#canvases').appendChild(div);
+		// document.querySelector('#canvases').appendChild(div);
 		return canvas.getContext('2d');
 	}
 
@@ -211,12 +219,12 @@ class InfiniteChart {
 		}
 
 		if ( !this.imageDataCache.top ) {
-			console.warn('Top page redraw');
+			// console.warn('Top page redraw');
 			this.imageDataCache.top = this.drawFrame(pageFrom);
 		}
 
 		if ( !this.imageDataCache.bottom ) {
-			console.warn('Bottom page redraw');
+			// console.warn('Bottom page redraw');
 			this.imageDataCache.bottom = this.drawFrame(pageTo);
 		}
 
@@ -260,8 +268,8 @@ class InfiniteChart {
 				0, lastDrawPos, x, y, w, h);
 		}
 
-		this.imageDataCache.top && this.ctx.putImageData(this.imageDataCache.top.imageData, 0, 0);
-		this.imageDataCache.bottom && this.ctx2.putImageData(this.imageDataCache.bottom.imageData, 0, 0);
+		// this.imageDataCache.top && this.ctx.putImageData(this.imageDataCache.top.imageData, 0, 0);
+		// this.imageDataCache.bottom && this.ctx2.putImageData(this.imageDataCache.bottom.imageData, 0, 0);
 
 		this.scrollDirection = scrollDirection;
 	}
@@ -401,4 +409,4 @@ function createCharts(chartsNum) {
 	}
 }
 
-createCharts(1)
+createCharts(10)
