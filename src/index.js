@@ -184,41 +184,43 @@ class InfiniteChart {
 	}
 
 	handleScroll(scrollTop) {
-		console.log('handleScroll')
-
 		const scrollDirection = ( scrollTop >= this.currentRangeFrom ) ? SD_DOWN : SD_UP;
 
 		this.currentRangeFrom = scrollTop;
 		this.currentRangeTo = this.currentRangeFrom + this.height;
 
-		const relativeScrollTop = scrollTop - ( this.currentPage * this.masterCanvasHeight );
-		const relativeScrollBottom = relativeScrollTop + this.height;
-
 		const pageFrom = Math.floor(this.currentRangeFrom / this.masterCanvasHeight);
 		const pageTo = pageFrom + 1;
 
-		// console.log(`relativeScrollTop: ${relativeScrollTop}`);
-		// console.log(`relativeScrollBottom: ${relativeScrollBottom}`);
+		const prevImageDataCacheTop = this.imageDataCache.top;
+		const prevImageDataCacheBottom = this.imageDataCache.bottom;
 
-		// page switch
+		this.imageDataCache.top = null;
+		this.imageDataCache.bottom = null;
 
-		// if ( relativeScrollBottom > this.masterCanvasHeight && scrollDirection === SD_DOWN ) {
-		// 	console.warn('next page')
-		// 	this.currentPage += 1;
-		// 	if ( !this.imageDataCache.bottom ) {
-		// 		this.imageDataCache.bottom = this.drawFrame();
-		// 	} else {
-		// 		this.imageDataCache.top = this.imageDataCache.bottom;
-		// 		this.imageDataCache.bottom = this.drawFrame();
-		// 	}
-		// } else if (relativeScrollBottom <= 0 && scrollDirection === SD_UP ) {
-		// 	console.warn('prev page');
+		if ( prevImageDataCacheTop.page === pageFrom ) {
+			this.imageDataCache.top = prevImageDataCacheTop;
+		} else if ( prevImageDataCacheBottom.page === pageFrom ) {
+			this.imageDataCache.top = prevImageDataCacheBottom;
+		}
 
-		// 	this.currentPage -= 1;
-		// 	this.imageDataCache.bottom = this.imageDataCache.top;
-		// 	this.imageDataCache.top = this.drawFrame();
-		// }
+		if ( prevImageDataCacheTop.page === pageTo ) {
+			this.imageDataCache.bottom = prevImageDataCacheTop;
+		} else if ( prevImageDataCacheBottom.page === pageTo ) {
+			this.imageDataCache.bottom = prevImageDataCacheBottom;
+		}
 
+		if ( !this.imageDataCache.top ) {
+			console.warn('Top page redraw');
+			this.imageDataCache.top = this.drawFrame(pageFrom);
+		}
+
+		if ( !this.imageDataCache.bottom ) {
+			console.warn('Bottom page redraw');
+			this.imageDataCache.bottom = this.drawFrame(pageTo);
+		}
+
+		// can be removed
 		const topRange = this.imageDataCache.top && this.getRangeIntersection({
 			from: this.currentRangeFrom,
 			to: this.currentRangeTo
@@ -229,70 +231,13 @@ class InfiniteChart {
 			to: this.currentRangeTo
 		}, this.imageDataCache.bottom, true);
 
-		if ( this.lastTopRange && this.lastBottomRange && !topRange && bottomRange ) {
-			// console.warn('switch to next Page!')
-			// this.currentPage += 1;
-			this.imageDataCache.top = this.imageDataCache.bottom;
-			this.imageDataCache.bottom = this.drawFrame(this.imageDataCache.top.page + 1);
-		} else if ( this.lastTopRange && this.lastBottomRange && topRange && !bottomRange ) {
-			// console.warn('switch to prev page');
-			if (this.imageDataCache.top.page > 0 ) {
-				this.imageDataCache.bottom = this.imageDataCache.top;
-				this.imageDataCache.top = this.drawFrame(this.imageDataCache.bottom.page - 1);
-			}
-		}
-
-		if ( !this.lastTopRange && !this.lastBottomRange ) {
-			// console.warn('RENDER BOTH PAGES')
-			this.imageDataCache.top = this.drawFrame(pageFrom);
-			this.imageDataCache.bottom = this.drawFrame(pageTo);
-
-		}
-
-		if ( !topRange && !bottomRange ) {
-			const page = Math.floor(this.currentRangeFrom / this.masterCanvasHeight);
-			this.imageDataCache.top = this.drawFrame(page);
-			this.imageDataCache.bottom = this.drawFrame(page + 1);
-		}
-
-		if ( this.scrollDirection && this.scrollDirection !== scrollDirection ) {
-			// scroll direction change
-
-			if ( scrollDirection === SD_UP && topRange && !bottomRange ) {
-				console.warn('switch to prev page 2');
-				if (this.imageDataCache.top.page > 0 ) {
-					this.imageDataCache.bottom = this.imageDataCache.top;
-					this.imageDataCache.top = this.drawFrame(this.imageDataCache.bottom.page - 1);
-				}
-
-			}
-		}
 
 		this.renderDebug({
 			'currentRangeFrom': this.currentRangeFrom,
 			'currentRangeTo': this.currentRangeTo,
-			'currentPage': this.currentPage,
-			'topRange': JSON.stringify(topRange),
-			'bottomRange': JSON.stringify(bottomRange),
-			'lastTopRange': this.lastTopRange,
-			'lastBottomRange': this.lastBottomRange,
 			'pageFrom': pageFrom,
 			'pageTo': pageTo,
 		});
-
-
-
-		this.lastTopRange = topRange;
-		this.lastBottomRange = bottomRange;
-
-		// initial draw of the second page
-		// if ( scrollDirection === SD_DOWN && topRange && !bottomRange && !this.imageDataCache.bottom ) {
-		// 	this.currentPage += 1;
-		// 	this.imageDataCache.bottom = this.drawFrame(this.currentPage);
-		// }
-
-		// console.log('topRange: ', topRange);
-		// console.log('bottomRange: ', bottomRange);
 
 		this.miniCtx.clearRect(0, 0, this.width, this.height);
 
@@ -303,8 +248,6 @@ class InfiniteChart {
 			lastDrawPos = h;
 			this.miniCtx.putImageData(this.imageDataCache.top.imageData,
 				0, -y, x, y, w, h);
-
-			console.log('putImageData top: ',0, -y, x, y, w, h);
 		}
 
 
@@ -315,71 +258,12 @@ class InfiniteChart {
 			}
 			this.miniCtx.putImageData(this.imageDataCache.bottom.imageData,
 				0, lastDrawPos, x, y, w, h);
-			console.log('putImageData bottom: ',0, lastDrawPos, x, y, w, h);
-
-			// this.miniCtx.putImageData(
-			// 	this.imageDataCache.bottom.imageData,
-			// 	0, -bottomRange.from, //-(this.masterCanvasHeight-this.height)-relativeScrollTop,
-			// 	0, bottomRange.from,
-			// 	this.width, bottomRange.to-bottomRange.from);
-			// 	console.log('putImageData bottom: ', 0, bottomRange.from, this.width, bottomRange.to-bottomRange.from)
 		}
 
 		this.imageDataCache.top && this.ctx.putImageData(this.imageDataCache.top.imageData, 0, 0);
 		this.imageDataCache.bottom && this.ctx2.putImageData(this.imageDataCache.bottom.imageData, 0, 0);
 
 		this.scrollDirection = scrollDirection;
-
-
-		// if ( bottomRange ) {
-
-		// 	console.warn('this.currentScrollRange: ', { from: this.currentRangeFrom, to: this.currentRangeTo } );
-		// 	console.log('this.currentRange: ', this.imageDataCache.top.range );
-		// 	console.log('this.prevRAnge: ', this.imageDataCache.bottom.range );
-
-		// 	console.log('prevRangeIntersection:', bottomRange);
-		// 	console.log('curRangeIntersection:', topRange)
-
-		// 	// this.miniCtx.fillStyle = '#f50';
-		// 	// // this.miniCtx.fillRect(0, bottomRange.to-this.height, this.width, topRange.to);
-		// 	// this.miniCtx.fillRect(0, bottomRange.to-bottomRange.from, this.width, topRange.to);
-		// 	// console.log('fillRect:' , 0, bottomRange.to-bottomRange.from, this.width, topRange.to)
-
-		// 		if ( topRange ) {
-		// 			if ( bottomRange ) {
-		// 				this.miniCtx.putImageData(
-		// 					this.imageDataCache.top.imageData,
-		// 					0, bottomRange.to-bottomRange.from,
-		// 					0, topRange.from,
-		// 					this.width, topRange.to);
-		// 			} else {
-		// 				this.miniCtx.putImageData(this.imageDataCache.top.imageData, 0, -relativeScrollTop);
-		// 			}
-		// 		}
-		// } else {
-		// 	this.miniCtx.putImageData(this.imageDataCache.top.imageData, 0, -relativeScrollTop);
-
-		// }
-	}
-
-	drawFrameBoundaries() {
-		const { ctx } = this;
-		ctx.strokeStyle = "red";
-
-		const top = this.currentRangeFrom;
-		const bottom = this.currentRangeTo;
-
-		ctx.beginPath();
-		ctx.moveTo(0, top);
-		ctx.lineTo(this.width, top);
-		ctx.stroke();
-
-		ctx.strokeStyle = "green";
-
-		ctx.beginPath();
-		ctx.moveTo(0, bottom);
-		ctx.lineTo(this.width, bottom);
-		ctx.stroke();
 	}
 
 	initChart() {
@@ -447,12 +331,6 @@ class InfiniteChart {
 
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-		// set debug page background
-		// ctx.fillStyle = pagesColors[page];
-		// ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-		let t = performance.now();
-
 		// let newItems = [];
 		// for (let i = 0; i < dataItems.length; i++) {
 		//   const { point, n } = dataItems[i];
@@ -468,16 +346,6 @@ class InfiniteChart {
 		const firstPoint = bsb.ge(this.dataItems, pagePointsRangeFrom, ({ point: { x, y } }, from) => y - from);
 		const lastPoint = bsb.le(this.dataItems, pagePointsRangeTo, ({ point: { x, y } }, to) => y - to);
 		let newItems = this.dataItems.slice(firstPoint, lastPoint+1)
-
-		let t2 = (performance.now() - t).toFixed(4);
-
-		if ( t2 > perfMax ) {
-			perfMax = t2;
-		} else if ( t2 < perfMin ) {
-			perfMin = t2
-		}
-
-		let perfAvg = (perfMin + perfMax) / 2;
 
 		this.drawDebugData(page);
 
@@ -512,8 +380,6 @@ class InfiniteChart {
 				}
 
 			});
-
-			// this.drawFrameBoundaries();
 
 			ctx.restore();
 		}
