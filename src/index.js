@@ -72,6 +72,9 @@ class InfiniteChart {
 		const canvas = this.createCanvasElement(this.width, this.masterCanvasHeight);
 		this.ctx = canvas.getContext('2d');
 
+		this.ctx.fillStyle = "rgba(228, 248, 225, 0.5)";
+		this.ctx.font = "12px sans-serif";
+
 		const scrollBox = document.createElement('div');
 		scrollBox.className = 'scrollbox';
 		scrollBox.innerHTML = `
@@ -89,8 +92,14 @@ class InfiniteChart {
 			// this.handleScroll(Math.round(scrollBox.scrollTop));
 		});
 
+		this.lastRafCb = null;
+
 		syncScroll.on('scroll', scrollPos => {
-			this.handleScroll(scrollPos);
+			if ( this.lastRafCb ) {
+				window.cancelAnimationFrame(this.lastRafCb);
+				this.lastRafCb = null;
+			}
+			this.lastRafCb = window.requestAnimationFrame(() => this.handleScroll(scrollPos));
 		})
 
 		this.initChart();
@@ -195,12 +204,24 @@ class InfiniteChart {
 
 		if ( !this.imageDataCache.top ) {
 			// console.warn('Top page redraw');
+			const t = performance.now()
+
 			this.imageDataCache.top = this.drawFrame(pageFrom);
+
+			const t2 = performance.now() - t;
+			if ( !this.maxTopDrawTime || t2  > this.maxTopDrawTime ) {
+				this.maxTopDrawTime = t2;
+			}
 		}
 
 		if ( !this.imageDataCache.bottom ) {
 			// console.warn('Bottom page redraw');
+			const t = performance.now()
 			this.imageDataCache.bottom = this.drawFrame(pageTo);
+			const t2 = performance.now() - t;
+			if ( !this.maxBottomDrawTime || t2 > this.maxBottomDrawTime ) {
+				this.maxBottomDrawTime = t2;
+			}
 		}
 
 		// can be removed
@@ -237,8 +258,9 @@ class InfiniteChart {
 		this.renderDebug({
 			'currentRangeFrom': this.currentRangeFrom,
 			'currentRangeTo': this.currentRangeTo,
-			'pageFrom': pageFrom,
-			'pageTo': pageTo,
+			'pages': `${pageFrom} - ${pageTo}`,
+			'maxTopDrawTime': this.maxTopDrawTime,
+			'maxBottomDrawTime': this.maxBottomDrawTime
 		});
 
 		this.scrollDirection = scrollDirection;
@@ -283,8 +305,6 @@ class InfiniteChart {
 		const canvasHeight = this.masterCanvasHeight;
 		const canvasWidth = this.width;
 
-		ctx.fillStyle = "rgba(228, 248, 225, 0.5)";
-
 		const pagePointsRangeFrom = page * this.masterCanvasHeight;
 		const pagePointsRangeTo = pagePointsRangeFrom + this.masterCanvasHeight;
 
@@ -300,24 +320,21 @@ class InfiniteChart {
 			ctx.save();
 			ctx.translate(0, -pagePointsRangeFrom);
 
-			ctx.font = "12px sans-serif";
-
 			let prev = null;
+			ctx.beginPath();
+			ctx.strokeStyle = "blue";
 
 			newItems.forEach(itm => {
 				const { x, y } = itm.point;
 
 				if (prev) {
-					ctx.beginPath();
-					ctx.strokeStyle = "blue";
-
 					ctx.moveTo(prev.point.x, prev.point.y);
 					ctx.lineTo(x, y);
-					ctx.stroke();
 				}
 
 				prev = itm;
 			});
+			ctx.stroke();
 
 			// draw labels
 			newItems.forEach(itm => {
@@ -330,6 +347,7 @@ class InfiniteChart {
 			});
 
 			ctx.restore();
+
 		}
 
 		const pageRangeFrom = page * this.masterCanvasHeight;
